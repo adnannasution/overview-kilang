@@ -11,85 +11,24 @@
 {% block head_extra %}{% endblock %}
 </head>
 <body>
-<div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="brand-icon-wrap">
-      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
-    </div>
-    <span class="brand-text">Overview Kilang</span>
-    <button class="sidebar-close-btn" onclick="closeSidebar()" title="Tutup menu">
-      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
-  <nav class="sidebar-nav">
-    <div class="nav-group-label">Reliability</div>
-    <a href="/dashboard/executive" class="nav-item gov-item active" onclick="closeSidebar()" title="Overview Kilang">
-      <svg viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M4 20V9l5 3V9l5 3V9l5 3v8"/><line x1="8" y1="20" x2="8" y2="16"/><line x1="16" y1="20" x2="16" y2="16"/></svg>
-      <span>Overview Kilang</span>
-    </a>
-  </nav>
-</aside>
 <main class="main" id="main-content">
   <header class="topbar">
-    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="Toggle menu">
-      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
+    <div class="topbar-brand">
+      <div class="brand-icon-wrap">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <span class="topbar-brand-text">Overview Kilang</span>
+    </div>
     <div class="topbar-breadcrumb">
-      <span class="topbar-brand-mobile">RM</span>
-      <span>Reliability Machine</span>
       <span class="sep">›</span>
       <span class="current">{{ title }}</span>
     </div>
   </header>
-  <div class="content">
+  <div class="content" id="content">
     {% block content %}{% endblock %}
   </div>
 </main>
 <script src="/static/js/app.js"></script>
-<script>
-const SIDEBAR_KEY = 'ok_sidebar_open';
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  const isMobile = window.innerWidth < 768;
-  if (isMobile) {
-    const isOpen = sidebar.classList.contains('mobile-open');
-    sidebar.classList.toggle('mobile-open', !isOpen);
-    overlay.classList.toggle('active', !isOpen);
-  } else {
-    const isCollapsed = sidebar.classList.contains('collapsed');
-    sidebar.classList.toggle('collapsed', !isCollapsed);
-    document.getElementById('main-content').classList.toggle('sidebar-collapsed', !isCollapsed);
-    document.documentElement.style.setProperty('--sidebar-w', isCollapsed ? '230px' : '56px');
-    localStorage.setItem(SIDEBAR_KEY, isCollapsed ? 'open' : 'collapsed');
-  }
-}
-function closeSidebar() {
-  if (window.innerWidth < 768) {
-    document.getElementById('sidebar').classList.remove('mobile-open');
-    document.getElementById('sidebar-overlay').classList.remove('active');
-  }
-}
-(function() {
-  const state = localStorage.getItem(SIDEBAR_KEY);
-  if (state === 'collapsed' && window.innerWidth >= 768) {
-    document.getElementById('sidebar').classList.add('collapsed');
-    document.getElementById('main-content').classList.add('sidebar-collapsed');
-    document.documentElement.style.setProperty('--sidebar-w', '56px');
-  }
-  if (window.innerWidth < 768) {
-    document.getElementById('main-content').style.marginLeft = '0';
-  }
-})();
-window.addEventListener('resize', function() {
-  if (window.innerWidth >= 768) {
-    document.getElementById('sidebar').classList.remove('mobile-open');
-    document.getElementById('sidebar-overlay').classList.remove('active');
-    document.getElementById('main-content').style.marginLeft = '';
-  }
-});
-</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

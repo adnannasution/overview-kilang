@@ -19,8 +19,7 @@ async def root():
     return RedirectResponse("/dashboard/executive")
 
 
-@app.get("/dashboard/executive", response_class=HTMLResponse)
-async def page_executive(request: Request, period: str = ""):
+def _executive_context(period: str) -> dict:
     # Live data from the reliability tables, with per-section fallback to mock.
     try:
         snapshot = executive_data.get_executive_snapshot(period)
@@ -30,10 +29,20 @@ async def page_executive(request: Request, period: str = ""):
         methodology = executive_data.methodology(period)
     except Exception:
         methodology = {"entries": [], "db": "unavailable", "period": period}
-    return templates.TemplateResponse(request, "executive.html", {
-        "snapshot": snapshot, "methodology": methodology,
-        "period": period, "title": "Overview Kilang",
-    })
+    return {"snapshot": snapshot, "methodology": methodology,
+            "period": period, "title": "Overview Kilang"}
+
+
+@app.get("/dashboard/executive", response_class=HTMLResponse)
+async def page_executive(request: Request, period: str = ""):
+    return templates.TemplateResponse(request, "executive.html", _executive_context(period))
+
+
+@app.get("/dashboard/executive/fragment", response_class=HTMLResponse)
+async def page_executive_fragment(request: Request, period: str = ""):
+    # Same dashboard content as /dashboard/executive, without the page shell —
+    # used by the period switcher to swap data in without a full reload.
+    return templates.TemplateResponse(request, "_exec_content.html", _executive_context(period))
 
 
 @app.get("/dashboard/executive/debug")
