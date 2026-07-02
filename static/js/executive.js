@@ -31,6 +31,7 @@ async function exLoadPeriod(period, pushHistory) {
   if (!current) return;
   var activeTab = document.querySelector('.exec-dash .ex-tab.active');
   var activeTabName = activeTab ? activeTab.getAttribute('data-tab') : 'overview';
+  // Only mark the select as loading — no full-dash dimming
   current.classList.add('ex-loading');
   try {
     var res = await fetch('/dashboard/executive/fragment?period=' + encodeURIComponent(period));

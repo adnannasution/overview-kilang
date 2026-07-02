@@ -22,7 +22,7 @@
   --ex-radius:    12px;
   --ex-shadow:    0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
 
-  padding: 1.25rem 1.5rem 2rem;
+  padding: 1.25rem 1.75rem 2rem;
   min-height: calc(100vh - 56px);
   background:
     radial-gradient(1200px 500px at 80% -10%, rgba(8,145,178,0.05), transparent 60%),
@@ -32,7 +32,9 @@
 }
 .exec-dash * { box-sizing: border-box; }
 .exec-dash .hidden { display: none !important; }
-.exec-dash.ex-loading { opacity: 0.55; pointer-events: none; transition: opacity 0.15s; }
+/* Minimal period-switch indicator — only dims the select itself, not the whole dash */
+.exec-dash.ex-loading { pointer-events: none; }
+.exec-dash.ex-loading #ex-period { opacity: 0.5; }
 
 /* ── Header ── */
 .ex-header {
