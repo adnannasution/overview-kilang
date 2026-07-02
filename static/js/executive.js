@@ -24,6 +24,46 @@ function exRefreshSnapshot(btn) {
   }, 900);
 }
 
+// Period switch — fetches the dashboard fragment and swaps it in place,
+// so changing the period never triggers a full page reload.
+async function exLoadPeriod(period, pushHistory) {
+  var current = document.querySelector('.exec-dash');
+  if (!current) return;
+  var activeTab = document.querySelector('.exec-dash .ex-tab.active');
+  var activeTabName = activeTab ? activeTab.getAttribute('data-tab') : 'overview';
+  current.classList.add('ex-loading');
+  try {
+    var res = await fetch('/dashboard/executive/fragment?period=' + encodeURIComponent(period));
+    if (!res.ok) throw new Error('fragment fetch failed');
+    var html = await res.text();
+    var wrap = document.createElement('div');
+    wrap.innerHTML = html;
+    var next = wrap.querySelector('.exec-dash');
+    if (!next) throw new Error('fragment missing .exec-dash');
+    current.replaceWith(next);
+    var nextBtn = next.querySelector('.ex-tab[data-tab="' + activeTabName + '"]');
+    exShowTab(activeTabName, nextBtn);
+    if (pushHistory !== false) {
+      var url = new URL(window.location.href);
+      url.searchParams.set('period', period);
+      window.history.pushState({ period: period }, '', url);
+    }
+  } catch (e) {
+    // Fallback: normal navigation if the fragment endpoint is unreachable.
+    window.location.href = '/dashboard/executive?period=' + encodeURIComponent(period);
+  }
+}
+
+function exChangePeriod(period) {
+  exLoadPeriod(period, true);
+}
+
+window.addEventListener('popstate', function (e) {
+  var period = (e.state && e.state.period) || new URL(window.location.href).searchParams.get('period') || '';
+  exLoadPeriod(period, false);
+});
+
 // Expose for inline handlers
 window.exShowTab = exShowTab;
 window.exRefreshSnapshot = exRefreshSnapshot;
+window.exChangePeriod = exChangePeriod;
