@@ -40,12 +40,12 @@ RU_DISPLAY = {"RU2": "RU II", "RU3": "RU III", "RU4": "RU IV", "RU5": "RU V",
 
 _RU_KEYWORDS = [
     ("TPPI", ["tppi", "tuban"]),
-    ("RU7",  ["vii", "ru 7", "ru7", "ru-7", "kasim", "sorong"]),
-    ("RU6",  ["vi", "ru 6", "ru6", "ru-6", "balongan"]),
-    ("RU5",  ["v", "ru 5", "ru5", "ru-5", "balikpapan"]),
-    ("RU4",  ["iv", "ru 4", "ru4", "ru-4", "cilacap"]),
-    ("RU3",  ["iii", "ru 3", "ru3", "ru-3", "plaju", "palembang"]),
-    ("RU2",  ["ii", "ru 2", "ru2", "ru-2", "dumai"]),
+    ("RU7",  ["vii", "ru 7", "ru7", "ru-7", "kasim", "sorong", "ru vii kasim"]),
+    ("RU6",  ["vi", "ru 6", "ru6", "ru-6", "balongan", "ru vi balongan"]),
+    ("RU5",  ["v", "ru 5", "ru5", "ru-5", "balikpapan", "ru v balikpapan"]),
+    ("RU4",  ["iv", "ru 4", "ru4", "ru-4", "cilacap", "ru iv cilacap"]),
+    ("RU3",  ["iii", "ru 3", "ru3", "ru-3", "plaju", "palembang", "ru iii plaju"]),
+    ("RU2",  ["ii", "ru 2", "ru2", "ru-2", "dumai", "ru ii dumai"]),
 ]
 
 
