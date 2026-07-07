@@ -188,13 +188,23 @@ def _ru_col(cols):
     return _pick(cols, "refinery", "ru")
 
 
-def _fetch(conn, table, wanted):
-    """SELECT only the columns from `wanted` that actually exist; return dicts."""
+def _fetch(conn, table, wanted, as_of=None):
+    """SELECT only the columns from `wanted` that actually exist; return dicts.
+
+    When as_of is given and the table has a `periode` column, filter to rows
+    whose periode falls within the same calendar month as as_of.
+    """
     cols = _columns(conn, table)
     use = [c for c in wanted if c in cols]
     if not use:
         return []
     quoted = ", ".join(f'"{c}"' for c in use)
+    if as_of is not None and "periode" in cols:
+        first = as_of.replace(day=1)
+        return conn.execute(
+            f'SELECT {quoted} FROM {table} WHERE periode >= %s AND periode <= %s',
+            (first, as_of)
+        ).fetchall()
     return conn.execute(f"SELECT {quoted} FROM {table}").fetchall()
 
 
@@ -216,7 +226,7 @@ def _plo(conn, as_of):
     for table, rucol, dcol, title, src in sources:
         if not _table_exists(conn, table):
             continue
-        for r in _fetch(conn, table, [rucol, dcol]):
+        for r in _fetch(conn, table, [rucol, dcol], as_of):
             national["active"] += 1
             code = match_ru(r.get(rucol))
             d = _parse_date(r.get(dcol))
@@ -252,7 +262,7 @@ def _rkap(conn, as_of):
     if not _table_exists(conn, "irkap_program"):
         return None, {}, []
     rows = _fetch(conn, "irkap_program",
-                  ["refinery_unit", "status_prognosa", "finish_plan", "program_kerja"])
+                  ["refinery_unit", "status_prognosa", "finish_plan", "program_kerja"], as_of)
     if not rows:
         return None, {}, []
     done_words = ("DONE", "SELESAI", "COMPLETE", "COMPLETED", "FINISH", "CLOSED", "100")
@@ -286,7 +296,7 @@ def _rkap(conn, as_of):
     return kpi, prog, items[:5]
 
 
-def _introspect_metric(conn, table, target_needles, actual_needles):
+def _introspect_metric(conn, table, target_needles, actual_needles, as_of=None):
     if not _table_exists(conn, table):
         return None
     cols = _columns(conn, table)
@@ -295,7 +305,7 @@ def _introspect_metric(conn, table, target_needles, actual_needles):
     acol = _pick(cols, *actual_needles)
     if not (rucol and acol):
         return None
-    rows = _fetch(conn, table, [rucol, tcol, acol] if tcol else [rucol, acol])
+    rows = _fetch(conn, table, [rucol, tcol, acol] if tcol else [rucol, acol], as_of)
     agg = {}
     for r in rows:
         code = match_ru(r.get(rucol))
@@ -316,7 +326,7 @@ def _introspect_metric(conn, table, target_needles, actual_needles):
     return out or None
 
 
-def _capacity(conn):
+def _capacity(conn, as_of=None):
     if not _table_exists(conn, "monitoring_operasi"):
         return None
     cols = _columns(conn, "monitoring_operasi")
@@ -326,7 +336,7 @@ def _capacity(conn):
     if not (rucol and actual):
         return None
     rows = _fetch(conn, "monitoring_operasi",
-                  [rucol, design, actual] if design else [rucol, actual])
+                  [rucol, design, actual] if design else [rucol, actual], as_of)
     agg = {}
     for r in rows:
         code = match_ru(r.get(rucol))
@@ -347,7 +357,7 @@ def _capacity(conn):
     return out or None
 
 
-def _oa(conn):
+def _oa(conn, as_of=None):
     """OA if monitoring_operasi has an explicit availability column."""
     if not _table_exists(conn, "monitoring_operasi"):
         return None
@@ -356,7 +366,7 @@ def _oa(conn):
     oacol = _pick(cols, "oa", "availability", "ketersediaan", "avail")
     if not (rucol and oacol):
         return None
-    rows = _fetch(conn, "monitoring_operasi", [rucol, oacol])
+    rows = _fetch(conn, "monitoring_operasi", [rucol, oacol], as_of)
     agg = {}
     for r in rows:
         code = match_ru(r.get(rucol))
@@ -366,7 +376,7 @@ def _oa(conn):
     return {c: round(sum(v) / len(v), 1) for c, v in agg.items()} or None
 
 
-def _spend(conn):
+def _spend(conn, as_of=None):
     if not _table_exists(conn, "anggaran_maintenance"):
         return None
     cols = _columns(conn, "anggaran_maintenance")
@@ -375,7 +385,7 @@ def _spend(conn):
     actual = _pick(cols, "aktual", "actual", "realisasi", "realization", "spend")
     if not (plan and actual):
         return None
-    rows = _fetch(conn, "anggaran_maintenance", [rucol, plan, actual] if rucol else [plan, actual])
+    rows = _fetch(conn, "anggaran_maintenance", [rucol, plan, actual] if rucol else [plan, actual], as_of)
     nat_a = nat_p = 0.0
     per = {}
     for r in rows:
@@ -418,7 +428,7 @@ def _reliability(conn, as_of):
     # ICU high severity
     if _table_exists(conn, "icu_monitoring"):
         icu_by_ru = {}
-        for r in _fetch(conn, "icu_monitoring", ["ru", "icu_status", "issue"]):
+        for r in _fetch(conn, "icu_monitoring", ["ru", "icu_status", "issue"], as_of):
             if str(r.get("icu_status") or "").upper() in ("HIGH", "CRITICAL"):
                 code = match_ru(r.get("ru"))
                 if code:
@@ -430,14 +440,14 @@ def _reliability(conn, as_of):
                 "Reliability", "ICU")
     # Bad actor active
     if _table_exists(conn, "bad_actor_monitoring"):
-        for r in _fetch(conn, "bad_actor_monitoring", ["ru", "status", "problem"]):
+        for r in _fetch(conn, "bad_actor_monitoring", ["ru", "status", "problem"], as_of):
             if str(r.get("status") or "").upper() not in ("CLOSED", "SELESAI", "CLOSE", "DONE", ""):
                 code = match_ru(r.get("ru"))
                 if code:
                     counts[code] += 1
     # Zero clamp active
     if _table_exists(conn, "zero_clamp"):
-        for r in _fetch(conn, "zero_clamp", ["ru", "status"]):
+        for r in _fetch(conn, "zero_clamp", ["ru", "status"], as_of):
             if str(r.get("status") or "").upper() not in ("CLOSED", "SELESAI", "LEPAS", "DONE", ""):
                 code = match_ru(r.get("ru"))
                 if code:
@@ -445,7 +455,7 @@ def _reliability(conn, as_of):
     # Power & steam not-normal
     if _table_exists(conn, "power_stream"):
         ps = {}
-        for r in _fetch(conn, "power_stream", ["refinery_unit", "status_operation", "status_n0"]):
+        for r in _fetch(conn, "power_stream", ["refinery_unit", "status_operation", "status_n0"], as_of):
             so = str(r.get("status_operation") or "").upper()
             if so and so not in ("NORMAL", "OK", "RUN", "RUNNING", "AVAILABLE"):
                 code = match_ru(r.get("refinery_unit"))
@@ -468,7 +478,7 @@ def _program_items(conn, as_of):
                               ("spm_workplan", "refinery_unit", "Workplan SPM")):
         if not _table_exists(conn, table):
             continue
-        for r in _fetch(conn, table, [rucol, "item", "status_rtl", "target"]):
+        for r in _fetch(conn, table, [rucol, "item", "status_rtl", "target"], as_of):
             st = str(r.get("status_rtl") or "").upper()
             if st in ("DONE", "CLOSED", "SELESAI", "COMPLETE"):
                 continue
@@ -483,7 +493,7 @@ def _program_items(conn, as_of):
                           "owner": "Project", "source": src})
     if _table_exists(conn, "inspection_plan"):
         for r in _fetch(conn, "inspection_plan",
-                        ["refinery_unit", "due_date", "actual_date", "type_inspection"]):
+                        ["refinery_unit", "due_date", "actual_date", "type_inspection"], as_of):
             due = _parse_date(r.get("due_date"))
             act = _parse_date(r.get("actual_date"))
             if due and due < as_of and act is None:
@@ -497,39 +507,39 @@ def _program_items(conn, as_of):
     return items[:5]
 
 
-def _readiness_cards(conn):
+def _readiness_cards(conn, as_of=None):
     """Live counts for the readiness cards where columns are known."""
     cards = {c["title"]: dict(c) for c in executive_mock._readiness()}
+    ref = as_of or _dt.date.today()
 
     def setcard(title, primary, detail, status):
         if title in cards:
             cards[title].update({"primary": primary, "detail": detail, "status": status})
 
     if _table_exists(conn, "bad_actor_monitoring"):
-        rows = _fetch(conn, "bad_actor_monitoring", ["status"])
+        rows = _fetch(conn, "bad_actor_monitoring", ["status"], as_of)
         active = sum(1 for r in rows if str(r.get("status") or "").upper()
                      not in ("CLOSED", "SELESAI", "CLOSE", "DONE", ""))
         setcard("Bad Actor", f"{active} active", f"of {len(rows)} total",
                 "critical" if active > 8 else "watch" if active else "healthy")
     if _table_exists(conn, "icu_monitoring"):
-        rows = _fetch(conn, "icu_monitoring", ["icu_status"])
+        rows = _fetch(conn, "icu_monitoring", ["icu_status"], as_of)
         high = sum(1 for r in rows if str(r.get("icu_status") or "").upper() in ("HIGH", "CRITICAL"))
         setcard("ICU", f"{high} high severity", f"of {len(rows)} items",
                 "critical" if high else "healthy")
     if _table_exists(conn, "zero_clamp"):
-        rows = _fetch(conn, "zero_clamp", ["status"])
+        rows = _fetch(conn, "zero_clamp", ["status"], as_of)
         active = sum(1 for r in rows if str(r.get("status") or "").upper()
                      not in ("CLOSED", "SELESAI", "LEPAS", "DONE", ""))
         setcard("Zero Clamp", f"{active} active clamps", f"of {len(rows)} total",
                 "watch" if active else "healthy")
     if _table_exists(conn, "boc"):
-        rows = _fetch(conn, "boc", ["mtbf"])
+        rows = _fetch(conn, "boc", ["mtbf"], as_of)
         setcard("BOC MTBF/MTTR", f"{len(rows)} equipment", "monitored", "healthy")
     if _table_exists(conn, "inspection_plan"):
-        rows = _fetch(conn, "inspection_plan", ["due_date", "actual_date"])
-        today = _dt.date.today()
+        rows = _fetch(conn, "inspection_plan", ["due_date", "actual_date"], as_of)
         overdue = sum(1 for r in rows if (_parse_date(r.get("due_date"))
-                      and _parse_date(r.get("due_date")) < today
+                      and _parse_date(r.get("due_date")) < ref
                       and _parse_date(r.get("actual_date")) is None))
         setcard("Inspection Risk", f"{overdue} overdue", f"of {len(rows)} planned",
                 "critical" if overdue > 5 else "watch" if overdue else "healthy")
@@ -615,11 +625,11 @@ def get_executive_snapshot(period: str = "") -> dict:
             _try(live, "rkap", lambda: _apply_rkap(conn, as_of, snap, ru_by))
             _try(live, "reliability", lambda: _apply_reliability(conn, as_of, snap, ru_by))
             _try(live, "program", lambda: _apply_program(conn, as_of, snap))
-            _try(live, "paf", lambda: _apply_paf(conn, snap, ru_by))
-            _try(live, "oa", lambda: _apply_oa(conn, snap, ru_by))
-            _try(live, "capacity", lambda: _apply_capacity(conn, snap, ru_by))
-            _try(live, "spend", lambda: _apply_spend(conn, snap, ru_by))
-            _try(live, "readiness", lambda: snap.__setitem__("readiness", _readiness_cards(conn)))
+            _try(live, "paf", lambda: _apply_paf(conn, as_of, snap, ru_by))
+            _try(live, "oa", lambda: _apply_oa(conn, as_of, snap, ru_by))
+            _try(live, "capacity", lambda: _apply_capacity(conn, as_of, snap, ru_by))
+            _try(live, "spend", lambda: _apply_spend(conn, as_of, snap, ru_by))
+            _try(live, "readiness", lambda: snap.__setitem__("readiness", _readiness_cards(conn, as_of)))
             _try(live, "data_freshness", lambda: _apply_fresh(conn, as_of, snap))
 
             for ru in snap["refineries"]:
@@ -703,9 +713,9 @@ def _apply_reliability(conn, as_of, snap, ru_by):
         snap["alerts"]["operational"] = items
 
 
-def _apply_paf(conn, snap, ru_by):
+def _apply_paf(conn, as_of, snap, ru_by):
     paf = _introspect_metric(conn, "paf", ("target", "rencana"),
-                             ("real", "aktual", "actual", "capai", "paf"))
+                             ("real", "aktual", "actual", "capai", "paf"), as_of)
     if not paf:
         return False
     vals = [a for _, a in paf.values() if a is not None]
@@ -723,8 +733,8 @@ def _apply_paf(conn, snap, ru_by):
             ru_by[code]["paf"] = round(a)
 
 
-def _apply_oa(conn, snap, ru_by):
-    oa = _oa(conn)
+def _apply_oa(conn, as_of, snap, ru_by):
+    oa = _oa(conn, as_of)
     if not oa:
         return False
     vals = list(oa.values())
@@ -737,8 +747,8 @@ def _apply_oa(conn, snap, ru_by):
             ru_by[code]["oa"] = round(v)
 
 
-def _apply_capacity(conn, snap, ru_by):
-    cap = _capacity(conn)
+def _apply_capacity(conn, as_of, snap, ru_by):
+    cap = _capacity(conn, as_of)
     if not cap:
         return False
     for code, v in cap.items():
@@ -752,8 +762,8 @@ def _apply_capacity(conn, snap, ru_by):
                 ru["util"] = v["util"]
 
 
-def _apply_spend(conn, snap, ru_by):
-    sp = _spend(conn)
+def _apply_spend(conn, as_of, snap, ru_by):
+    sp = _spend(conn, as_of)
     if not sp:
         return False
     national, per = sp
@@ -971,10 +981,10 @@ def diagnostics(period: str = "") -> dict:
             sim("plo", lambda: _plo(conn, as_of)[0])
             sim("rkap", lambda: _rkap(conn, as_of)[0])
             sim("paf", lambda: _introspect_metric(conn, "paf", ("target", "rencana"),
-                                                  ("real", "aktual", "actual", "capai", "paf")))
-            sim("capacity", lambda: _capacity(conn))
-            sim("spend", lambda: _spend(conn))
-            sim("oa", lambda: _oa(conn))
+                                                  ("real", "aktual", "actual", "capai", "paf"), as_of))
+            sim("capacity", lambda: _capacity(conn, as_of))
+            sim("spend", lambda: _spend(conn, as_of))
+            sim("oa", lambda: _oa(conn, as_of))
             sim("reliability", lambda: _reliability(conn, as_of)[0])
     except Exception as e:
         out["db"] = f"query phase failed: {e!r}"
