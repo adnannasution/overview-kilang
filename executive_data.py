@@ -199,8 +199,7 @@ def _fetch(conn, table, wanted):
 
 
 def _date_col(cols):
-    return _pick(cols, "month_update", "update", "report_date", "periode",
-                 "tanggal", "date", "tahun")
+    return "periode" if "periode" in cols else None
 
 
 # ─── section builders ─────────────────────────────────────────────────────────
@@ -871,7 +870,7 @@ def _methodology_entries():
          "note": "Kartu tanpa kolom yang dikenal tetap memakai nilai contoh."},
         {"metric": "Data Freshness",
          "source": "semua tabel sumber",
-         "columns": "COUNT(*) + kolom tanggal (month_update/periode/date)",
+         "columns": "COUNT(*) + kolom periode (yyyy-mm-dd)",
          "formula": "Jumlah record + tanggal update terbaru per tabel.",
          "thresholds": "ada data → Current · kosong → No data",
          "note": "Menunjukkan kesegaran & kelengkapan sumber."},
