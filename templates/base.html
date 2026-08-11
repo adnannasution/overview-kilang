@@ -23,6 +23,15 @@
       <span class="sep">›</span>
       <span class="current">{{ title }}</span>
     </div>
+    {% if user %}
+    <div class="topbar-user">
+      <span class="topbar-username">{{ user.username }}</span>
+      {% if user.role == 'admin' %}
+      <span class="topbar-role-badge">admin</span>
+      {% endif %}
+      <a href="/logout" class="topbar-logout">Keluar</a>
+    </div>
+    {% endif %}
   </header>
   <div class="content" id="content">
     {% block content %}{% endblock %}
